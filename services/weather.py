@@ -1,9 +1,10 @@
 import os
 import requests
 
-def get_weather(location: str) -> str:
+def get_weather_by_coords(lat: float, lon: float) -> str:
+    """Fetches real-time weather using exact GPS coordinates."""
     api_key = os.getenv("OPENWEATHER_API_KEY")
-    url = f"http://api.openweathermap.org/data/2.5/weather?q={location},KE&appid={api_key}&units=metric"
+    url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
     
     try:
         response = requests.get(url)
@@ -11,10 +12,9 @@ def get_weather(location: str) -> str:
             data = response.json()
             temp = data['main']['temp']
             desc = data['weather'][0]['description']
-            return f"{temp}°C with {desc}"
-        elif response.status_code == 404:
-            return "Location not found. Please try a major nearby town."
+            location_name = data['name']
+            return f"{temp}°C with {desc} in {location_name}"
         else:
-            return "Unable to fetch weather at the moment."
+            return "Unable to fetch weather for these coordinates."
     except Exception as e:
         return f"Weather service error: {str(e)}"
