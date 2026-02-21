@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  mkulima-app:
+    build: .
+    container_name: mkulima_ai_container
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - .:/app  # Maps local files to container for live-reloading during dev

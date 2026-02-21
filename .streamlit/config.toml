@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#2E8B57" # Sea Green - perfect for agriculture
+backgroundColor = "#F9FBF9" # Very light green/off-white background
+secondaryBackgroundColor = "#E8F0E8" # Slightly darker green for sidebar/widgets
+textColor = "#1F2937" # Dark slate gray for readability
+font = "sans serif"
