@@ -119,7 +119,7 @@ def main():
             
         with st.chat_message("user"):
             with st.spinner("Transcribing..."):
-                transcribed_text = audio_to_text(temp_audio_path)
+                transcribed_text = audio_to_text(temp_audio_path, target_lang_code)
             st.markdown(f"🎙️ *{transcribed_text}*")
             
         st.session_state.messages.append({"role": "user", "content": transcribed_text})
