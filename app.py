@@ -34,8 +34,9 @@ if "active_coords" not in st.session_state:
 # --- 2. GLOBAL SIDEBAR SETTINGS ---
 with st.sidebar:
     st.title("🌍 Carbon & Data")
-    selected_lang = st.selectbox("Language / Lugha", ["English", "Swahili", "Kikuyu"], index=0)
-    target_lang_code = LANG_MAP[selected_lang]
+    
+    # Save the selected language to session state so it works across all pages
+    st.session_state.selected_lang = st.selectbox("Language / Lugha", ["English", "Swahili", "Kikuyu"], index=0)
     
     st.markdown("---")
     if st.button("🗑️ Clear Dashboard Data"):
@@ -48,7 +49,7 @@ with st.sidebar:
 # --- 3. PAGE DEFINITIONS ---
 
 def chat_page():
-    """Page 1: Text and Voice Chatbot"""
+    """Page 1: Text, Voice, and Image Chatbot"""
     st.title("💬 AI Assistant")
     
     # Render History
@@ -62,11 +63,45 @@ def chat_page():
             if msg.get("audio"):
                 st.audio(msg["audio"], format="audio/mp3")
 
-    # Voice Input
-    audio_bytes = st.audio_input("🎙️ Record Voice Question")
+    # --- MEDIA INPUTS ---
+    st.write("") # Small spacer
+    with st.expander("📎 Attach Image or Voice Note", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            uploaded_file = st.file_uploader("📸 Upload Image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+        with col2:
+            audio_bytes = st.audio_input("🎙️ Record Voice", label_visibility="collapsed")
+
+    # --- 1. IMAGE UPLOAD LOGIC ---
+    if uploaded_file and uploaded_file.file_id not in st.session_state.processed_files:
+        st.session_state.processed_files.add(uploaded_file.file_id)
+        image_bytes = uploaded_file.getvalue()
+        
+        st.session_state.messages.append({"role": "user", "content": "Analyze this image.", "image": image_bytes})
+        with st.chat_message("user"):
+            st.image(image_bytes, use_container_width=True)
+            st.markdown("Analyze this image.")
+            
+        with st.chat_message("assistant"):
+            with st.spinner("Processing image..."):
+                analysis = analyze_crop_image(image_bytes)
+                st.session_state.messages.append({"role": "user", "content": f"[System: Vision detected {analysis}] Give me a breakdown of what this means."})
+                
+                response = generate_farm_advice(st.session_state.messages, weather_context=st.session_state.weather_context)
+                
+                target_lang_code = LANG_MAP[st.session_state.get('selected_lang', 'English')]
+                final_response = translate_text(response, "eng_Latn", target_lang_code)
+                st.markdown(final_response)
+                
+        st.session_state.messages.append({"role": "assistant", "content": final_response})
+        st.rerun()
+
+    # --- 2. VOICE INPUT LOGIC ---
     if audio_bytes and audio_bytes.file_id not in st.session_state.processed_files:
         st.session_state.processed_files.add(audio_bytes.file_id)
         temp_audio_path = "temp_mic.wav"
+        target_lang_code = LANG_MAP[st.session_state.get('selected_lang', 'English')]
+        
         with open(temp_audio_path, "wb") as f:
             f.write(audio_bytes.getbuffer())
             
@@ -98,8 +133,9 @@ def chat_page():
             os.remove(temp_audio_path)
         st.rerun()
 
-    # Text Input
+    # --- 3. TEXT INPUT LOGIC ---
     if prompt := st.chat_input("Ask about carbon markets, soil health..."):
+        target_lang_code = LANG_MAP[st.session_state.get('selected_lang', 'English')]
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
