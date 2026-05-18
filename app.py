@@ -14,7 +14,17 @@ from services.vision import analyze_crop_image
 from services.speech import audio_to_text, text_to_audio
 from services.weather import get_weather_by_coords
 from services.carbon import calculate_baseline_carbon
-
+from services.veterinary import (
+    get_nearby_veterinarians, 
+    format_vet_for_display, 
+    get_emergency_hotline,
+    get_emergency_care_tips
+)
+from services.carbon_markets import (
+    calculate_potential_earnings,
+    get_carbon_certification_requirements,
+    get_certification_checklist
+)
 # Page config must be the very first Streamlit command
 st.set_page_config(page_title="Carbon & Data AI", page_icon="🌍", layout="wide")
 
@@ -154,7 +164,7 @@ def chat_page():
         st.rerun()
 
 def audit_page():
-    """Page 2: GPS Mapping and Carbon Calculator"""
+    """Page 2: GPS Mapping and Carbon Audit"""
     st.title("🌍 Farm Map & Carbon Audit")
     
     col1, col2 = st.columns(2)
@@ -180,47 +190,220 @@ def audit_page():
 
     with col2:
         st.markdown("### 📊 Carbon Audit Tool")
+        
         farm_size = st.number_input("Farm Size (Acres)", min_value=1.0, value=5.0)
-        practice = st.selectbox("Primary Practice", ["Conventional", "No-Till", "Agroforestry", "Cover Cropping", "Regenerative"])
         
-        if st.button("Generate Baseline Audit"):
-            audit_results = calculate_baseline_carbon(farm_size, practice)
+        practice = st.selectbox(
+            "Primary Practice", 
+            ["Conventional", "No-Till", "Agroforestry", "Cover Cropping", "Regenerative"]
+        )
+        
+        # NEW: Soil type input
+        soil_type = st.selectbox(
+            "Soil Type",
+            ["Loam", "Clay", "Sandy"],
+            help="🌾 Check soil type—affects carbon retention"
+        )
+        
+        # NEW: Crop selection
+        crops = st.multiselect(
+            "Crops Grown",
+            ["Maize", "Beans", "Coffee", "Tea", "Avocado", "Banana", "Vegetables"],
+            help="Select all crops on your farm"
+        )
+        
+        if st.button("📊 Generate Baseline Audit"):
+            audit_results = calculate_baseline_carbon(farm_size, practice, soil_type, crops)
             tco2e = audit_results['estimated_tCO2e']
-            st.success(f"**Est. Sequestration:** {tco2e} tCO2e/year")
             
-            audit_msg = f"[System Alert: User generated an audit. Size: {farm_size} acres. Practice: {practice}. Sequestration: {tco2e} tCO2e/yr.]"
+            # Display results
+            st.success(f"✅ **Est. Sequestration:** {tco2e} tCO2e/year")
+            
+            # NEW: Show soil health note
+            st.info(audit_results['soil_health_note'])
+            
+            # NEW: Show carbon credit earnings
+            st.markdown("---")
+            st.subheader("💰 Carbon Credit Market Value")
+            
+            col_earn1, col_earn2 = st.columns(2)
+            
+            with col_earn1:
+                earnings = calculate_potential_earnings(tco2e, "vcs_verified_carbon_unit")
+                st.metric(
+                    "Annual Value (USD)",
+                    f"${earnings['annual_earnings_usd']}",
+                    help="Based on Verra carbon credit standard"
+                )
+            
+            with col_earn2:
+                st.metric(
+                    "Annual Value (KES)",
+                    f"KES {earnings['annual_earnings_kes']:,}",
+                    help="Approximate Kenyan Shilling conversion"
+                )
+            
+            # Show certification path
+            with st.expander("🏆 Get Carbon Credit Certified", expanded=False):
+                cert_type = st.selectbox(
+                    "Certification Path",
+                    ["Verra VCS (International)", "Gold Standard", "Kenya National"]
+                )
+                
+                cert_map = {
+                    "Verra VCS (International)": "vcs_verra",
+                    "Gold Standard": "gold_standard",
+                    "Kenya National": "kenya_national"
+                }
+                
+                cert_key = cert_map[cert_type]
+                requirements = get_carbon_certification_requirements()[cert_key]
+                
+                col_cert1, col_cert2 = st.columns(2)
+                
+                with col_cert1:
+                    st.markdown(f"**{requirements['standard']}**")
+                    st.metric("Cost (Approx)", f"${requirements['cost_estimate_usd']}")
+                    st.metric("Timeline", f"{requirements['timeline_months']} months")
+                
+                with col_cert2:
+                    st.markdown("**Pros:**")
+                    for pro in requirements['pros']:
+                        st.caption(f"✅ {pro}")
+                    st.markdown("**Cons:**")
+                    for con in requirements['cons']:
+                        st.caption(f"⚠️ {con}")
+                
+                st.markdown("---")
+                st.markdown("**Certification Checklist:**")
+                checklist = get_certification_checklist(cert_key)
+                for step in checklist:
+                    st.caption(step)
+            
+            # Save audit to AI memory
+            audit_msg = f"[System Alert: User generated an audit. Size: {farm_size} acres. Practice: {practice}. Soil: {soil_type}. Sequestration: {tco2e} tCO2e/yr. Crops: {', '.join(crops) if crops else 'Not specified'}]"
             st.session_state.messages.append({"role": "user", "content": audit_msg})
-            st.caption("Audit saved to AI memory. You can now ask the Assistant about these results.")
-
-def vision_page():
-    """Page 3: Satellite and Drone Imagery"""
-    st.title("🛰️ Spatial Imagery Analysis")
-    st.write("Upload drone or satellite imagery for AI assessment.")
+            st.caption("✅ Audit saved to AI memory. You can ask the Assistant about these results.")
+ 
+def veterinary_page():
+    """Page: Find Nearby Veterinary Services & Emergency Support"""
+    st.title("🐄 Livestock Veterinary Support")
     
-    uploaded_file = st.file_uploader("Upload Image (JPEG/PNG)", type=["jpg", "jpeg", "png"])
+    col1, col2 = st.columns([2, 1])
     
-    if uploaded_file and uploaded_file.file_id not in st.session_state.processed_files:
-        st.session_state.processed_files.add(uploaded_file.file_id)
-        image_bytes = uploaded_file.getvalue()
+    with col1:
+        st.markdown("### 📍 Nearby Veterinary Clinics")
         
-        st.image(image_bytes, use_container_width=True)
-        
-        with st.spinner("Processing spatial imagery..."):
-            analysis = analyze_crop_image(image_bytes)
-            st.success("Analysis Complete!")
-            st.info(f"**Raw AI Output:** {analysis}")
+        if not st.session_state.active_coords:
+            st.warning("📍 **Enable location access first!**")
+            st.info("""
+            1. Go to **Map & Audit** page
+            2. Click location button to share your GPS location
+            3. Come back to this page
+            """)
+        else:
+            lat, lon = st.session_state.active_coords
             
-            st.session_state.messages.append({"role": "user", "content": "Analyze this image.", "image": image_bytes})
-            st.session_state.messages.append({"role": "user", "content": f"[System: Vision detected {analysis}]"})
-            st.caption("Image data sent to AI memory. Switch to the Chat Assistant to discuss the results.")
+            # Search radius
+            search_radius = st.slider("Search Radius (km)", 5, 50, 15)
+            
+            # Animal type filter
+            animal_types = ["cattle", "poultry", "sheep", "goats", "pigs", "all"]
+            selected_animal = st.selectbox(
+                "Looking for vet for:",
+                animal_types,
+                index=5
+            )
+            
+            with st.spinner("🔍 Finding vets near you..."):
+                animal_filter = None if selected_animal == "all" else selected_animal
+                vets = get_nearby_veterinarians(lat, lon, search_radius, animal_filter)
+            
+            if vets:
+                st.success(f"✅ Found {len(vets)} vet(s) near you")
+                
+                for i, vet in enumerate(vets):
+                    with st.container(border=True):
+                        vet_col1, vet_col2 = st.columns([3, 1])
+                        
+                        with vet_col1:
+                            st.markdown(f"### **{vet['name']}**")
+                            
+                            # Key info
+                            col_info1, col_info2 = st.columns(2)
+                            with col_info1:
+                                st.caption(f"📍 **Distance:** {vet['distance_km']} km")
+                                st.caption(f"📞 **Phone:** {vet['phone']}")
+                                st.caption(f"🕐 **Hours:** {vet['hours']}")
+                            with col_info2:
+                                st.caption(f"⭐ **Rating:** {vet['rating']}")
+                                st.caption(f"🆘 **Emergency:** {vet['emergency_hours']}")
+                                st.caption(f"📍 **Area:** {vet['address']}")
+                            
+                            st.caption(f"**Treats:** {', '.join(vet['services'])}")
+                            st.caption(f"**Specializes in:** {', '.join(vet['specialties'])}")
+                        
+                        with vet_col2:
+                            # Action buttons
+                            col_btn1, col_btn2 = st.columns(2)
+                            
+                            with col_btn1:
+                                if st.button("📞", key=f"call_{vet['id']}", help="Call", use_container_width=True):
+                                    st.success(f"📞 Calling {vet['phone']}...")
+                            
+                            with col_btn2:
+                                if st.button("💬", key=f"whatsapp_{vet['id']}", help="WhatsApp", use_container_width=True):
+                                    st.info(f"💬 WhatsApp ready: {vet['whatsapp']}")
+                    
+                    st.write("")  # Spacer
+            else:
+                st.warning(f"⚠️ No vets found within {search_radius} km.")
+                st.info("Try increasing the search radius or check your location.")
+    
+    with col2:
+        st.markdown("### 🆘 Emergency Care")
+        
+        # Emergency hotlines
+        st.subheader("Emergency Hotlines")
+        hotlines = get_emergency_hotline()
+        
+        for hotline_key, hotline_info in hotlines.items():
+            with st.container(border=True):
+                st.markdown(f"**{hotline_info['name']}**")
+                st.markdown(f"`{hotline_info['phone']}`")
+                st.caption(hotline_info['description'])
+        
+        st.markdown("---")
+        
+        # Emergency tips
+        st.subheader("⚠️ When to Call Vet")
+        
+        selected_animal_tips = st.selectbox(
+            "Select animal type for tips:",
+            ["cattle", "poultry", "sheep_goats"],
+            key="emergency_tips_animal"
+        )
+        
+        tips = get_emergency_care_tips(selected_animal_tips)
+        
+        with st.expander("🔴 Warning Signs", expanded=True):
+            for sign in tips["signs"]:
+                st.markdown(f"• {sign}")
+        
+        with st.expander("✅ Immediate Actions"):
+            for action in tips["immediate_actions"]:
+                st.markdown(f"✓ {action}")
+        
+        with st.expander("❌ What NOT to Do"):
+            for avoid in tips["avoid"]:
+                st.markdown(f"✗ {avoid}")
 
 # --- 4. NAVIGATION ROUTER ---
 # This bundles the functions into pages and creates the sidebar menu automatically
 pg = st.navigation([
     st.Page(chat_page, title="AI Assistant", icon="💬"),
     st.Page(audit_page, title="Map & Audit", icon="🌍"),
-    st.Page(vision_page, title="Spatial Vision", icon="🛰️")
+    st.Page(veterinary_page, title="Vet Services", icon="🐄"),
 ])
-
 # Run the app
 pg.run()
