@@ -289,6 +289,7 @@ def veterinary_page():
     """Page: Find Nearby Veterinary Services & Emergency Support"""
     st.title("🐄 Livestock Veterinary Support")
     
+    # LEVEL 1 COLUMNS (Allowed)
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -324,36 +325,28 @@ def veterinary_page():
                 
                 for i, vet in enumerate(vets):
                     with st.container(border=True):
+                        # LEVEL 2 COLUMNS (Allowed - Max Nesting Depth Reached)
                         vet_col1, vet_col2 = st.columns([3, 1])
                         
                         with vet_col1:
                             st.markdown(f"### **{vet['name']}**")
                             
-                            # Key info
-                            col_info1, col_info2 = st.columns(2)
-                            with col_info1:
-                                st.caption(f"📍 **Distance:** {vet['distance_km']} km")
-                                st.caption(f"📞 **Phone:** {vet['phone']}")
-                                st.caption(f"🕐 **Hours:** {vet['hours']}")
-                            with col_info2:
-                                st.caption(f"⭐ **Rating:** {vet['rating']}")
-                                st.caption(f"🆘 **Emergency:** {vet['emergency_hours']}")
-                                st.caption(f"📍 **Area:** {vet['address']}")
+                            # FIX: Combined previous info columns into a clean inline layout to avoid Nesting Violations
+                            st.caption(f"📍 **Distance:** {vet['distance_km']} km &nbsp;&nbsp;|&nbsp;&nbsp; ⭐ **Rating:** {vet['rating']}")
+                            st.caption(f"📞 **Phone:** {vet['phone']} &nbsp;&nbsp;|&nbsp;&nbsp; 🆘 **Emergency:** {vet['emergency_hours']}")
+                            st.caption(f"🕐 **Hours:** {vet['hours']} &nbsp;&nbsp;|&nbsp;&nbsp; 📍 **Area:** {vet['address']}")
                             
+                            st.write("") # Micro spacer
                             st.caption(f"**Treats:** {', '.join(vet['services'])}")
                             st.caption(f"**Specializes in:** {', '.join(vet['specialties'])}")
                         
                         with vet_col2:
-                            # Action buttons
-                            col_btn1, col_btn2 = st.columns(2)
+                            # FIX: Stacked buttons vertically instead of side-by-side to avoid Nesting Violations
+                            if st.button("📞 Call", key=f"call_{vet['id']}", help="Call", use_container_width=True):
+                                st.success(f"📞 Calling {vet['phone']}...")
                             
-                            with col_btn1:
-                                if st.button("📞", key=f"call_{vet['id']}", help="Call", use_container_width=True):
-                                    st.success(f"📞 Calling {vet['phone']}...")
-                            
-                            with col_btn2:
-                                if st.button("💬", key=f"whatsapp_{vet['id']}", help="WhatsApp", use_container_width=True):
-                                    st.info(f"💬 WhatsApp ready: {vet['whatsapp']}")
+                            if st.button("💬 WhatsApp", key=f"whatsapp_{vet['id']}", help="WhatsApp", use_container_width=True):
+                                st.info(f"💬 WhatsApp ready: {vet['whatsapp']}")
                     
                     st.write("")  # Spacer
             else:
