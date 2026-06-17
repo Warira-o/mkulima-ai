@@ -26,14 +26,14 @@ from services.carbon_markets import (
     get_certification_checklist
 )
 # Page config must be the very first Streamlit command
-st.set_page_config(page_title="Carbon & Data AI", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="Mkulima-ai", page_icon="🌍", layout="wide")
 
 LANG_MAP = {"English": "eng_Latn", "Swahili": "swa_Latn", "Kikuyu": "kik_Latn"}
 
 # --- 1. INITIALIZE SHARED MEMORY ---
 # This ensures data survives when the user clicks between pages
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Welcome to Carbon & Data. How can I help you today?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Welcome to mkulima-ai. How can I help you today?"}]
 if "processed_files" not in st.session_state:
     st.session_state.processed_files = set()
 if "weather_context" not in st.session_state:
@@ -43,7 +43,7 @@ if "active_coords" not in st.session_state:
 
 # --- 2. GLOBAL SIDEBAR SETTINGS ---
 with st.sidebar:
-    st.title("🌍 Carbon & Data")
+    st.title("🌍 Mkulima-ai")
     
     # Save the selected language to session state so it works across all pages
     st.session_state.selected_lang = st.selectbox("Language / Lugha", ["English", "Swahili", "Kikuyu"], index=0)
