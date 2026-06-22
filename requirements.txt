@@ -1,4 +1,4 @@
-streamlit==1.40.0
+treamlit==1.40.0
 groq
 requests==2.31.0
 gtts==2.5.1
